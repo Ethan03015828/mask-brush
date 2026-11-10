@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mask-brush demo</title>
+<style>
+  :root { color-scheme: light dark; --line: #8884; }
+  body { font: 16px/1.5 system-ui, sans-serif; max-width: 760px; margin: 24px auto; padding: 0 16px; }
+  .wrap { position: relative; display: inline-block; max-width: 100%; }
+  .wrap canvas { display: block; max-width: 100%; height: auto; border-radius: 10px; }
+  #mask { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0; }
+  button { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); background: transparent; cursor: pointer; }
+  button:disabled { opacity: .4; cursor: default; }
+  #out { max-width: 100%; border: 1px solid var(--line); border-radius: 10px; }
+</style>
+</head>
+<body>
+<h1>mask-brush demo</h1>
+<p>Choose a photo, paint over something, then export the mask.</p>
+<input type="file" accept="image/*" id="file">
+<div class="wrap"><canvas id="img"></canvas><canvas id="mask"></canvas></div>
+<div class="bar">
+  <label>Brush <input type="range" id="size" min="8" max="90" value="34"></label>
+  <button id="undo" disabled>Undo</button>
+  <button id="clear" disabled>Clear</button>
+  <button id="export" disabled>Export mask</button>
+</div>
+<p><img id="out" alt="Exported mask appears here"></p>
+<p>Want to see it removing real people from photos? Try <a href="https://swiftremover.com/remove-person-from-photo/">remove person from photo</a> on Swift Remover.</p>
+<script type="module">
+  import { createMaskBrush } from "./mask-brush.js";
+  const img = document.getElementById("img"), mask = document.getElementById("mask");
+  const $ = (id) => document.getElementById(id);
+  const brush = createMaskBrush(mask, {
+    onChange: ({ hasPaint, canUndo }) => { $("undo").disabled = !canUndo; $("clear").disabled = $("export").disabled = !hasPaint; },
+  });
+  $("size").oninput = (e) => brush.setSize(+e.target.value);
+  $("undo").onclick = () => brush.undo();
+  $("clear").onclick = () => brush.clear();
+  $("export").onclick = async () => { $("out").src = URL.createObjectURL(await brush.toMaskBlob()); };
+  $("file").onchange = (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    const im = new Image();
+    im.onload = () => {
+      const s = Math.min(1, 1024 / Math.max(im.naturalWidth, im.naturalHeight));
+      img.width = mask.width = Math.round(im.naturalWidth * s);
+      img.height = mask.height = Math.round(im.naturalHeight * s);
+      img.getContext("2d").drawImage(im, 0, 0, img.width, img.height);
+      brush.clear(true);
+    };
+    im.src = URL.createObjectURL(f);
+  };
+</script>
+</body>
+</html>
